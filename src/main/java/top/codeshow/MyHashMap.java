@@ -2,7 +2,10 @@ package top.codeshow;
 
 import top.codeshow.util.MyStringUtils;
 
-import java.util.*;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Objects;
 
 public class MyHashMap<K, V> {
     public static void main(String[] args) {
@@ -14,6 +17,8 @@ public class MyHashMap<K, V> {
         MyHashMap<Integer, Integer> myMap = new MyHashMap<>();
         myMap.put(1, 1);
         myMap.put(3, 3);
+        myMap.put(4, 4);
+        myMap.put(4, 5);
         System.out.println(myMap);
     }
 
