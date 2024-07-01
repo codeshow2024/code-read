@@ -3,22 +3,28 @@ package top.codeshow;
 import top.codeshow.util.MyStringUtils;
 
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Objects;
 
+/**
+ * 简易实现 HashMap
+ * （未实现节点数目达到一定数目，链表-->红黑树）
+ *
+ * @param <K> key 类型
+ * @param <V> value 类型
+ */
 public class MyHashMap<K, V> {
     public static void main(String[] args) {
-        System.out.println(1);
-        HashMap<Integer, Integer> map = new HashMap<>();
-        map.put(1, 1);
-        map.put(2, 2);
-        System.out.println(map);
         MyHashMap<Integer, Integer> myMap = new MyHashMap<>();
-        myMap.put(1, 1);
-        myMap.put(3, 3);
-        myMap.put(4, 4);
-        myMap.put(4, 5);
+        for (int i = 0; i < 1000; i++) {
+            myMap.put(i, i);
+        }
+        Integer put = myMap.put(4, 5);
+        System.out.println(put);
+        System.out.println(myMap);
+        System.out.println(myMap.get(4));
+        System.out.println(myMap);
+        System.out.println(myMap.remove(4));
         System.out.println(myMap);
     }
 
@@ -32,7 +38,6 @@ public class MyHashMap<K, V> {
     static final int MAXIMUM_CAPACITY = 1 << 30;
     // 默认最小容量
     static final int DEFAULT_INITIAL_CAPACITY = 1 << 4;
-    transient int modCount;
     // 容量
     transient int size;
 
@@ -40,7 +45,7 @@ public class MyHashMap<K, V> {
         this.loadFactor = LOAD_FACTOR;
     }
 
-    static final int hash(Object key) {
+    static int hash(Object key) {
         if (key == null) {
             return 0;
         }
@@ -50,6 +55,56 @@ public class MyHashMap<K, V> {
 
     public V put(K key, V value) {
         return putVal(hash(key), key, value, false);
+    }
+
+    static int tableSizeFor(int cap) {
+        int n = -1 >>> Integer.numberOfLeadingZeros(cap);
+        return n < 0 ? 1 : (n >= MAXIMUM_CAPACITY ? MAXIMUM_CAPACITY : n + 1);
+    }
+
+    public V remove(V key) {
+        Node<K, V>[] tab;
+        Node<K, V> e;
+        int n, i;
+        if ((tab = table) != null &&
+                (n = tab.length) > 0 &&
+                (e = tab[(i = hash(key) & (n - 1))]) != null) {
+            if (e.hash == hash(key) && Objects.equals(e.key, key)) {
+                V value = e.value;
+                tab[i] = e.next;
+                return value;
+            } else {
+                while (e.next != null) {
+                    if (e.next.hash == hash(key) && Objects.equals(e.next.key, key)) {
+                        V value = e.next.value;
+                        e.next = e.next.next;
+                        return value;
+                    }
+                }
+            }
+        }
+        return null;
+    }
+
+    public V get(K key) {
+        if (table == null || table.length == 0) {
+            return null;
+        }
+        int n = table.length;
+        int hash = hash(key);
+        int i = hash & (n - 1);
+        Node<K, V> e = table[i];
+        while (e != null) {
+            if (e.hash == hash && Objects.equals(e.key, key)) {
+                return e.value;
+            }
+            e = e.next;
+        }
+        return null;
+    }
+
+    public V putIfAbsent(K key, V value) {
+        return putVal(hash(key), key, value, true);
     }
 
     public V putVal(int hash, K key, V value, boolean onlyIfAbsent) {
@@ -67,7 +122,7 @@ public class MyHashMap<K, V> {
             if (p.hash == hash && ((k = p.key) == key || (key != null && key.equals(k)))) {
                 e = p;
             } else {
-                for (int binCount = 0; ; binCount++) {
+                for (; ; ) {
                     if ((e = p.next) == null) {
                         p.next = new Node<>(hash, key, value, null);
                         break;
@@ -88,7 +143,6 @@ public class MyHashMap<K, V> {
             }
         }
         // 到达这一步表示数据是插入的，而不是替换
-        ++modCount;
         if (++size >= threshold) {
             resize();
         }
@@ -103,12 +157,66 @@ public class MyHashMap<K, V> {
         if (oldCap == 0 && oldThr == 0) {
             newCap = DEFAULT_INITIAL_CAPACITY;
             newThr = (int) (loadFactor * DEFAULT_INITIAL_CAPACITY);
+        } else if (oldCap > 0) {
+            if (oldCap >= MAXIMUM_CAPACITY) {
+                threshold = Integer.MAX_VALUE;
+                return oldTab;
+            } else if ((newCap = oldCap << 1) < MAXIMUM_CAPACITY && oldCap >= DEFAULT_INITIAL_CAPACITY) {
+                newThr = oldThr << 1;
+            }
         }
         threshold = newThr;
-        Node<K, V>[] newTab = new Node[newCap];
+        @SuppressWarnings({"unchecked"}) Node<K, V>[] newTab = (Node<K, V>[]) new Node[newCap];
         table = newTab;
+        if (oldTab != null) {
+            for (int j = 0; j < oldCap; j++) {
+                Node<K, V> e = oldTab[j];
+                if (e != null) {
+                    if (e.next == null) {
+                        newTab[e.hash & (newCap - 1)] = e;
+                    } else {
+                        // 做两个链表，索引位置分别为 j/j+oldCap
+                        Node<K, V> loHead = null, loTail = null;
+                        Node<K, V> hiHead = null, hiTail = null;
+                        Node<K, V> next;
+                        do {
+                            // 索引位置不变
+                            if ((e.hash & oldCap) == 0) {
+                                if (loHead == null) {
+                                    loHead = e;
+                                }
+                                if (loTail != null) {
+                                    loTail.next = e;
+                                }
+                                loTail = e;
+                            }
+                            // 索引位置 oldCap+j
+                            else {
+                                if (hiHead == null) {
+                                    hiHead = e;
+                                }
+                                if (hiTail != null) {
+                                    hiTail.next = e;
+                                }
+                                hiTail = e;
+                            }
+                            e = e.next;
+                        } while (e.next != null);
+                        if (loHead != null) {
+                            loTail.next = null;
+                            newTab[j] = loTail;
+                        }
+                        if (hiHead != null) {
+                            hiTail.next = null;
+                            newTab[j + oldCap] = hiHead;
+                        }
+                    }
+                }
+            }
+        }
         return newTab;
     }
+
 
     @Override
     public String toString() {
@@ -163,9 +271,7 @@ public class MyHashMap<K, V> {
             if (this == obj) {
                 return true;
             }
-            return obj instanceof Node<?, ?> e
-                    && Objects.equals(e.getKey(), key)
-                    && Objects.equals(e.getValue(), value);
+            return obj instanceof Node<?, ?> e && Objects.equals(e.getKey(), key) && Objects.equals(e.getValue(), value);
         }
     }
 }
