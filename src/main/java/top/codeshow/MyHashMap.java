@@ -1,5 +1,7 @@
 package top.codeshow;
 
+import org.junit.jupiter.api.Test;
+import org.springframework.boot.test.context.SpringBootTest;
 import top.codeshow.util.MyStringUtils;
 
 import java.util.ArrayList;
@@ -15,18 +17,22 @@ import java.util.Objects;
  */
 public class MyHashMap<K, V> {
     public static void main(String[] args) {
-        MyHashMap<Integer, Integer> myMap = new MyHashMap<>();
+        MyHashMap<Integer, Integer> mm = new MyHashMap<>();
         for (int i = 0; i < 1000; i++) {
-            myMap.put(i, i);
+            mm.put(i, i);
         }
-        Integer put = myMap.put(4, 5);
-        System.out.println(put);
-        System.out.println(myMap);
-        System.out.println(myMap.get(4));
-        System.out.println(myMap);
-        System.out.println(myMap.remove(4));
-        System.out.println(myMap);
+        assert mm.get(4) == 4;
+        mm.putIfAbsent(4, 5);
+        assert mm.get(4) == 4;
+        mm.put(4, 5);
+        assert mm.get(4) == 5;
+        mm.remove(4);
+        assert mm.get(4) == null;
+        mm.putIfAbsent(1001, 1001);
+        assert mm.get(1001) == 1001;
+
     }
+
 
     // 默认负载因子
     static final float LOAD_FACTOR = 0.75f;
